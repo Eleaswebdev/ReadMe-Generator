@@ -24,7 +24,7 @@ const getSystemInstruction = (style: ReadmeStyle, fileType: 'md' | 'txt') => {
       License: GPLv2 or later
       License URI: https://www.gnu.org/licenses/gpl-2.0.html
       
-      [If a Project Image is provided, display it here: "Banner: [URL]"]
+      [CRITICAL: If "Project Image URL" is "None Provided", DO NOT generate this line. If provided, display: "Banner: [URL]"]
 
       [Short description paragraph]
       
@@ -68,15 +68,23 @@ const getSystemInstruction = (style: ReadmeStyle, fileType: 'md' | 'txt') => {
       Use indentation for lists.
       Do not use Markdown syntax like # or *. Use - for bullets.
       If Project Image is provided, display it after the Title as "Banner: [URL]".
+      
+      HANDLING CUSTOM SECTIONS:
+      If the user provides Custom Section titles, insert them into the document structure where appropriate (usually before the final License/Credits sections).
+      Generate relevant, professional content for each custom section based on its title and the project context.
     `;
   }
 
   // Fallback to existing Markdown logic
   const baseStructure = `
     1.  **Title**: H1 Header with Project Name.
-    2.  **Project Image**: IF a Project Image is provided, you MUST display it here using HTML syntax to ensure full width: 
-        \`<img src="IMAGE_URL_PLACEHOLDER" width="100%" height="auto" alt="Project Banner" />\`
-        Replace IMAGE_URL_PLACEHOLDER with the actual URL provided.
+    2.  **Project Image**: 
+        - CRITICAL: Check the "Project Image URL" value provided in the prompt.
+        - IF "Project Image URL" is "None Provided", DO NOT generate any image tag, text, or placeholder. SKIP this section completely.
+        - IF a URL is provided, you MUST display it here using HTML syntax to ensure full width: 
+          \`<img src="IMAGE_URL_PLACEHOLDER" width="100%" height="auto" alt="Project Banner" />\`
+          Replace IMAGE_URL_PLACEHOLDER with the actual URL provided.
+        - **STRICT PROHIBITION**: DO NOT wrap the image tag in <p>, <a>, <div align="center"> or any other HTML tags. Output ONLY the raw <img> tag on its own line.
     3.  **Introduction**: A compelling paragraph explaining the project.
     4.  **Separator**: Horizontal rule \`---\`.
     5.  **Features**: H2 Header. List of capabilities.
@@ -84,9 +92,10 @@ const getSystemInstruction = (style: ReadmeStyle, fileType: 'md' | 'txt') => {
     7.  **Installation**: H2 Header. Step-by-step code blocks.
     8.  **Configuration**: H2 Header. Setup instructions.
     9.  **Usage Guide**: H2 Header. Clear instructions on how to use the project.
-    10. **Contributing**: H2 Header.
-    11. **License**: H2 Header.
-    12. **Footer**: Credit line.
+    10. **Custom Sections**: Insert any user-defined custom sections here.
+    11. **Contributing**: H2 Header.
+    12. **License**: H2 Header.
+    13. **Footer**: Credit line.
   `;
 
   let styleRules = "";
@@ -99,6 +108,7 @@ const getSystemInstruction = (style: ReadmeStyle, fileType: 'md' | 'txt') => {
         - **Badges**: STRICTLY REQUIRED. Immediately below the Project Image (or Title if no image), generate Shields.io badges for tech stack.
           - Format: \`![Label](https://img.shields.io/badge/Label-Color?logo=logoName&logoColor=white)\`
         - **Headers**: Add fun emojis to H2 headers (e.g., ## 🚀 Features, ## 🛠️ Tech Stack).
+        - **Custom Sections**: If the user provides custom sections, you **MUST** automatically assign a relevant emoji to the section title (e.g., 'Roadmap' becomes '## 🗺️ Roadmap', 'API Reference' becomes '## 🔌 API Reference').
         - **Lists**: Use emojis as bullet points for key features.
         - **Tone**: Enthusiastic, energetic, open-source friendly.
       `;
@@ -109,6 +119,7 @@ const getSystemInstruction = (style: ReadmeStyle, fileType: 'md' | 'txt') => {
         - **Title**: text only, NO emojis in the title.
         - **Badges**: Required. Use flat, professional Shields.io badges below the Project Image.
         - **Headers**: Standard text only (e.g., ## Features, ## Tech Stack). NO emojis in headers.
+        - **Custom Sections**: Standard text headers only (e.g., ## Roadmap).
         - **Lists**: Standard bullet points (* or -). NO emojis in lists.
         - **Tone**: Formal, corporate, authoritative, concise.
         - **Extra**: Emphasize reliability and architecture.
@@ -120,6 +131,7 @@ const getSystemInstruction = (style: ReadmeStyle, fileType: 'md' | 'txt') => {
         - **Title**: Text only.
         - **Badges**: DO NOT include images or badges. Text lists only.
         - **Headers**: Standard text only. NO emojis.
+        - **Custom Sections**: Standard text headers only.
         - **Lists**: Standard bullet points. NO emojis.
         - **Formatting**: Keep it clean and minimalist. Focus on code blocks and clear text.
         - **Tone**: Direct, neutral, documentation-focused.
@@ -150,13 +162,14 @@ export const generateReadme = async (details: ProjectDetails, apiKey: string): P
   const ai = new GoogleGenAI({ apiKey });
   const systemInstruction = getSystemInstruction(details.style, details.fileType);
 
-  // If the image URL is long (like a base64 string), we use a placeholder in the prompt 
-  // to save tokens and avoid confusing the model, then inject it back into the response.
   const PLACEHOLDER_TAG = "{{PROJECT_IMAGE_SOURCE}}";
   const hasImage = !!details.imageUrl;
   
-  // Use placeholder for prompt if image exists
   const imagePromptValue = hasImage ? PLACEHOLDER_TAG : 'None Provided';
+
+  const customSectionsList = details.customSections.length > 0 
+    ? details.customSections.map(s => s.title).join(', ')
+    : 'None';
 
   const prompt = `
     Project Name: ${details.name}
@@ -164,9 +177,14 @@ export const generateReadme = async (details: ProjectDetails, apiKey: string): P
     Tech Stack: ${details.techStack}
     Key Features: ${details.features}
     Project Image URL: ${imagePromptValue}
+    Custom Sections to Generate: ${customSectionsList}
     
     Requested Format: ${details.fileType === 'md' ? 'Markdown (.md)' : 'Plain Text / WP Readme (.txt)'}
     ${details.fileType === 'md' ? `Selected Style: ${details.style.toUpperCase()}` : ''}
+
+    ${details.customPrompt ? `### CRITICAL REFINEMENT INSTRUCTIONS:
+    The user has provided the following specific instructions to modify the output. You MUST prioritize these instructions over the default style rules for the relevant sections mentioned:
+    "${details.customPrompt}"` : ''}
 
     Generate the complete documentation content now.
   `;
@@ -183,9 +201,7 @@ export const generateReadme = async (details: ProjectDetails, apiKey: string): P
 
     let finalText = response.text || "# Error generating README";
 
-    // If we used a placeholder and the model preserved it or used it in the output, replace it with the real source.
     if (hasImage && details.imageUrl) {
-        // Replace the placeholder if the model outputted it verbatim
         finalText = finalText.split(PLACEHOLDER_TAG).join(details.imageUrl);
     }
 

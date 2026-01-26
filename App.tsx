@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Github, Sparkles, Key } from 'lucide-react';
-import { ProjectDetails } from './types';
+import { ProjectDetails, CustomSection } from './types';
 import InputForm from './components/InputForm';
 import ReadmeDisplay from './components/ReadmeDisplay';
 import ApiKeyInput from './components/ApiKeyInput';
@@ -18,7 +18,9 @@ const App: React.FC = () => {
     features: '',
     style: 'modern',
     fileType: 'md',
-    imageUrl: ''
+    imageUrl: '',
+    customSections: [],
+    customPrompt: ''
   });
 
   const [generatedMarkdown, setGeneratedMarkdown] = useState<string>('');
@@ -48,13 +50,13 @@ const App: React.FC = () => {
     setIsUpdatingKey(false);
   };
 
-  const handleInputChange = (field: keyof ProjectDetails, value: string) => {
+  const handleInputChange = (field: keyof ProjectDetails, value: any) => {
     setDetails(prev => ({ ...prev, [field]: value }));
   };
 
   const handleGenerate = async () => {
     if (!apiKey) return;
-    
+
     setIsGenerating(true);
     setError(null);
     try {
@@ -71,8 +73,8 @@ const App: React.FC = () => {
 
   if (!apiKey || isUpdatingKey) {
     return (
-      <ApiKeyInput 
-        onSave={handleSaveKey} 
+      <ApiKeyInput
+        onSave={handleSaveKey}
         onCancel={apiKey ? handleCancelUpdate : undefined}
       />
     );
@@ -94,12 +96,12 @@ const App: React.FC = () => {
             </div>
             <div className="flex items-center gap-4">
               <span className="hidden sm:inline-flex text-xs font-medium px-2 py-1 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20">
-                Powered by Gemini 2.5
+                Powered by Zodevs
               </span>
-              
+
               <div className="h-6 w-px bg-slate-800 mx-1 hidden sm:block"></div>
 
-              <button 
+              <button
                 onClick={handleUpdateKey}
                 className="flex items-center gap-2 text-sm text-slate-400 hover:text-blue-400 transition-colors"
                 title="Update API Key"
@@ -114,7 +116,7 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-[calc(100vh-64px)]">
-        
+
         {/* Error Banner */}
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center gap-2 animate-fade-in">
@@ -130,12 +132,12 @@ const App: React.FC = () => {
               Configuration
             </div>
             <div className="overflow-y-auto h-full pr-2">
-               <InputForm
-                  details={details}
-                  onChange={handleInputChange}
-                  onSubmit={handleGenerate}
-                  isGenerating={isGenerating}
-                />
+              <InputForm
+                details={details}
+                onChange={handleInputChange}
+                onSubmit={handleGenerate}
+                isGenerating={isGenerating}
+              />
             </div>
           </div>
 

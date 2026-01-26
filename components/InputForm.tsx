@@ -1,16 +1,17 @@
 import React, { useState, useRef } from 'react';
-import { ProjectDetails, ReadmeStyle, FileType } from '../types';
-import { Wand2, Code2, Layers, FileText, Palette, FileType as FileTypeIcon, Image as ImageIcon, Upload, Link as LinkIcon, X } from 'lucide-react';
+import { ProjectDetails, ReadmeStyle, FileType, CustomSection } from '../types';
+import { Wand2, Code2, Layers, FileText, Palette, FileType as FileTypeIcon, Image as ImageIcon, Upload, Link as LinkIcon, X, Plus, Trash2, ListPlus, MessageSquarePlus } from 'lucide-react';
 
 interface InputFormProps {
   details: ProjectDetails;
-  onChange: (field: keyof ProjectDetails, value: string) => void;
+  onChange: (field: keyof ProjectDetails, value: any) => void;
   onSubmit: () => void;
   isGenerating: boolean;
 }
 
 const InputForm: React.FC<InputFormProps> = ({ details, onChange, onSubmit, isGenerating }) => {
   const [imageMode, setImageMode] = useState<'url' | 'upload'>('url');
+  const [newSectionTitle, setNewSectionTitle] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -28,6 +29,29 @@ const InputForm: React.FC<InputFormProps> = ({ details, onChange, onSubmit, isGe
     onChange('imageUrl', '');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleAddSection = () => {
+    if (!newSectionTitle.trim()) return;
+    
+    const newSection: CustomSection = {
+      id: crypto.randomUUID(),
+      title: newSectionTitle.trim()
+    };
+    
+    onChange('customSections', [...details.customSections, newSection]);
+    setNewSectionTitle('');
+  };
+
+  const handleRemoveSection = (id: string) => {
+    onChange('customSections', details.customSections.filter(s => s.id !== id));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddSection();
     }
   };
 
@@ -84,7 +108,7 @@ const InputForm: React.FC<InputFormProps> = ({ details, onChange, onSubmit, isGe
                 value={details.imageUrl || ''}
                 onChange={(e) => onChange('imageUrl', e.target.value)}
                 placeholder="https://example.com/banner.png"
-                disabled={details.imageUrl?.startsWith('data:')} // Disable text input if it's base64 data
+                disabled={details.imageUrl?.startsWith('data:')} 
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all disabled:opacity-50"
               />
             ) : (
@@ -192,6 +216,69 @@ const InputForm: React.FC<InputFormProps> = ({ details, onChange, onSubmit, isGe
             onChange={(e) => onChange('features', e.target.value)}
             placeholder="List specific features or modules..."
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all min-h-[80px] resize-none"
+          />
+        </div>
+
+        {/* Custom Sections Repeater */}
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-1.5 flex items-center gap-2">
+            <ListPlus className="w-4 h-4 text-slate-400" />
+            Custom Sections <span className="text-slate-500 text-xs font-normal">(Optional)</span>
+          </label>
+          
+          <div className="flex gap-2 mb-3">
+            <input
+              type="text"
+              value={newSectionTitle}
+              onChange={(e) => setNewSectionTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Section Title (e.g. Roadmap, API Reference)"
+              className="flex-grow bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+            />
+            <button
+              onClick={handleAddSection}
+              disabled={!newSectionTitle.trim()}
+              className="bg-slate-700 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors disabled:opacity-50 disabled:hover:bg-slate-700"
+              title="Add Section"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {details.customSections.map((section) => (
+              <div key={section.id} className="flex items-center justify-between bg-slate-900/50 border border-slate-700/50 rounded-lg px-3 py-2 group">
+                <span className="text-sm text-slate-300 font-medium truncate pr-2">
+                  {section.title}
+                </span>
+                <button
+                  onClick={() => handleRemoveSection(section.id)}
+                  className="text-slate-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 p-1"
+                  title="Remove Section"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            {details.customSections.length === 0 && (
+              <div className="text-xs text-slate-600 italic text-center py-2 border border-dashed border-slate-800 rounded-lg">
+                No custom sections added
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Custom Refinement Prompt */}
+        <div className="pt-4 border-t border-slate-700/50">
+          <label className="block text-sm font-medium text-slate-300 mb-1.5 flex items-center gap-2">
+            <MessageSquarePlus className="w-4 h-4 text-purple-400" />
+            Refinement Instructions <span className="text-slate-500 text-xs font-normal">(Optional)</span>
+          </label>
+          <textarea
+            value={details.customPrompt}
+            onChange={(e) => onChange('customPrompt', e.target.value)}
+            placeholder="e.g. Make the 'Features' section sound more casual, or include complex technical terms in the tech stack section."
+            className="w-full bg-slate-900 border border-purple-500/20 rounded-lg px-4 py-2.5 text-white placeholder-slate-600 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all min-h-[80px] resize-none text-sm"
           />
         </div>
       </div>

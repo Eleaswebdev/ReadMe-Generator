@@ -121,21 +121,40 @@ const SimpleRenderer: React.FC<{ content: string }> = ({ content }) => {
       {lines.map((line, index) => {
         const trimmed = line.trim();
 
+        // --- Ignore HTML wrapper lines (for cleaner preview) ---
+        // Skips lines that are just <p>, </p>, <a>, </a>, <div...>, </div>
+        // This prevents "raw" HTML tags from appearing in the preview if the AI adds wrappers.
+        if (trimmed.match(/^<\/?(p|a|div|center)[^>]*>$/i)) {
+          return null;
+        }
+
         // --- HTML Image Tags (for banners) ---
-        // Matches <img src="..." ... />
-        if (trimmed.startsWith('<img') && trimmed.endsWith('>')) {
-            const srcMatch = trimmed.match(/src="([^"]+)"/);
-            const altMatch = trimmed.match(/alt="([^"]+)"/);
-            if (srcMatch) {
+        // Matches <img src="..." ... /> anywhere in the line
+        const imgMatch = trimmed.match(/<img\s+[^>]*src="([^"]+)"[^>]*>/i);
+        if (imgMatch) {
+            const src = imgMatch[1];
+            // Try to extract alt text as well
+            const altMatch = trimmed.match(/alt="([^"]+)"/i);
+            const altText = altMatch ? altMatch[1] : 'Image';
+            
+            // Safety check: Don't render if src is invalid, missing, or 'None Provided'
+            if (src && src !== 'None Provided' && src !== 'null' && src !== 'undefined' && src !== '{{PROJECT_IMAGE_SOURCE}}') {
                 return (
                     <div key={index} className="my-6">
                         <img 
-                            src={srcMatch[1]} 
-                            alt={altMatch ? altMatch[1] : 'Image'} 
+                            src={src} 
+                            alt={altText} 
                             className="w-full h-auto rounded-lg"
+                            onError={(e) => {
+                              // Fallback if image fails to load
+                              e.currentTarget.style.display = 'none';
+                            }}
                         />
                     </div>
                 );
+            } else {
+              // Return null to render nothing if invalid
+              return null;
             }
         }
 
